@@ -23,6 +23,8 @@ import { tool } from "@opencode-ai/plugin";
 
 const ENV_TOOL_FILE = ".env.tool"
 const ENV_TOOL_REQUIRED_VARS = ["BACKEND_URL", "TEST_USERNAME", "TEST_PASSWORD"]
+const ENV_TOOL_DEFAULT_USERNAME_FIELD = "username"
+const ENV_TOOL_DEFAULT_PASSWORD_FIELD = "password"
 
 interface EnvToolResult {
 	vars: Record<string, string>
@@ -64,6 +66,10 @@ function buildSetupError(directory: string, missingFile: boolean, missingVars: s
 			`  BACKEND_URL=http://localhost:8080`,
 			`  TEST_USERNAME=your_user`,
 			`  TEST_PASSWORD=your_password`,
+			``,
+			`  # Optional — login field names (defaults: username / password)`,
+			`  # TEST_USERNAME_FIELD=email`,
+			`  # TEST_PASSWORD_FIELD=password`,
 		].join("\n")
 	}
 	return [
@@ -79,11 +85,13 @@ async function getToken(
 	backendUrl: string,
 	username: string,
 	password: string,
+	usernameField: string,
+	passwordField: string,
 ): Promise<string> {
 	const res = await fetch(`${backendUrl}/auth/login`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ username, password }),
+		body: JSON.stringify({ [usernameField]: username, [passwordField]: password }),
 	})
 
 	const data = (await res.json()) as Record<string, unknown>
@@ -113,6 +121,10 @@ Requires a .env.tool file at the project root with:
   BACKEND_URL=http://localhost:8080
   TEST_USERNAME=your_user
   TEST_PASSWORD=your_password
+
+  # Optional — login field names (defaults: username / password)
+  # TEST_USERNAME_FIELD=email
+  # TEST_PASSWORD_FIELD=password
 
 If the file is missing or any variable is absent, the tool reports exactly what to add and where.
 
@@ -198,6 +210,8 @@ Examples:
 		const resolvedUsername = username ?? envTool.vars.TEST_USERNAME
 		const resolvedPassword = password ?? envTool.vars.TEST_PASSWORD
 		const resolvedBackendUrl = envTool.vars.BACKEND_URL ?? "http://localhost:8080"
+		const resolvedUsernameField = envTool.vars.TEST_USERNAME_FIELD ?? ENV_TOOL_DEFAULT_USERNAME_FIELD
+		const resolvedPasswordField = envTool.vars.TEST_PASSWORD_FIELD ?? ENV_TOOL_DEFAULT_PASSWORD_FIELD
 
 		// 2. Validar config si se necesita auth
 		if (!skipAuth) {
@@ -215,7 +229,7 @@ Examples:
 		// 3. Obtener token (salvo que se indique skipAuth)
 		let token: string | null = null;
 		if (!skipAuth) {
-			token = await getToken(resolvedBackendUrl, resolvedUsername!, resolvedPassword!);
+			token = await getToken(resolvedBackendUrl, resolvedUsername!, resolvedPassword!, resolvedUsernameField, resolvedPasswordField);
 		}
 
 		const authHeader: Record<string, string> = token

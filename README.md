@@ -396,6 +396,11 @@ Reads all configuration from a `.env.tool` file at the **project root**. Does `P
 BACKEND_URL=http://localhost:8080
 TEST_USERNAME=your_user
 TEST_PASSWORD=your_password
+
+# Optional — login field names sent in the POST /auth/login body
+# Defaults: username / password. Override if your backend uses different names (e.g. email)
+# TEST_USERNAME_FIELD=email
+# TEST_PASSWORD_FIELD=password
 ```
 
 If the file is missing or any variable is absent, the tool reports exactly what to create or add — no guessing.
@@ -836,6 +841,11 @@ Lee toda la configuración desde un archivo `.env.tool` en la **raíz del proyec
 BACKEND_URL=http://localhost:8080
 TEST_USERNAME=tu_usuario
 TEST_PASSWORD=tu_password
+
+# Opcional — nombres de los campos en el body de POST /auth/login
+# Por defecto: username / password. Cambiar si el backend usa otros nombres (ej. email)
+# TEST_USERNAME_FIELD=email
+# TEST_PASSWORD_FIELD=password
 ```
 
 Si el archivo no existe o falta alguna variable, la tool reporta exactamente qué crear o agregar — sin ambigüedad.
