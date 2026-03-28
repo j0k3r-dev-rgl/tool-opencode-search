@@ -21,9 +21,17 @@ tools/
 │   ├── traversal.py                # Direct + recursive reverse (trace_callers)
 │   └── classification.py           # V3 impact classification
 │
+├── endpoints_core/                 # Modular endpoint/route scanner
+│   ├── common.py                   # Endpoint dataclass, ANALYZERS registry, file walker
+│   ├── formatter.py                # Compact text output grouped by kind
+│   └── analyzers/
+│       ├── java.py                 # Spring: @QueryMapping, @GetMapping, etc.
+│       └── typescript.py           # React Router 7: loader, action, resource routes
+│
 ├── trace_symbol.py / .ts           # Forward trace: follow calls outward
 ├── trace_callers.py / .ts          # Reverse trace: find incoming callers
 ├── find_symbol.py / .ts            # Definition locator: find where a symbol is defined
+├── list_endpoints.py / .ts         # Endpoint/route index: full API surface at a glance
 ├── grep_workspace.ts               # Text/regex search with context lines
 ├── scan_module.ts                  # Directory scanner
 └── api_test.ts                     # Local API tester
@@ -296,6 +304,77 @@ Use read or scan_module to inspect the file content.
 
 ---
 
+## `list_endpoints` — API surface index
+
+Scans the workspace and returns all endpoints and routes grouped by kind. Returns only name, kind, file, line, and path — **no file content**.
+
+Use this to understand the full API surface of a project before reading individual files.
+
+Modular: adding a new language requires only creating a new file in `endpoints_core/analyzers/` and registering it.
+
+### Supported
+
+| Language | Framework | What it detects |
+|----------|-----------|-----------------|
+| Java | Spring Boot | `@QueryMapping`, `@MutationMapping`, `@GetMapping`, `@PostMapping`, `@PutMapping`, `@PatchMapping`, `@DeleteMapping` |
+| TypeScript | React Router 7 | `loader`, `action` exports in `routes/`; resource routes under `routes/api/` |
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `language` | `auto` \| `java` \| `typescript` | Optional. Limits scan to one language. Defaults to `auto` |
+| `type` | `any` \| `graphql` \| `rest` \| `routes` | Optional. Filter by endpoint type. Defaults to `any` |
+
+### Examples
+
+```
+list_endpoints()
+list_endpoints(language="java", type="graphql")
+list_endpoints(language="java", type="rest")
+list_endpoints(language="typescript")
+```
+
+### Example output
+
+```
+Endpoints found: 24
+
+── Java / Spring Boot ─────────────────────────
+  GraphQL Queries (12)
+    TitularGraphQLController
+      getTitularById        back/.../TitularGraphQLController.java:34
+      getTitulares          back/.../TitularGraphQLController.java:41
+
+  REST POST (3)
+    TitularRestController
+      createTitular         /titulares    back/.../TitularRestController.java:24
+
+── TypeScript / React Router 7 ────────────────
+  Loaders (8)
+    titular
+      loader                /titular/:id  front/app/routes/titular/titular.tsx:12
+
+  Actions (4)
+    crear
+      action                /titular/crear  front/app/routes/titular/crear.tsx:18
+```
+
+### Adding a new language
+
+Create `endpoints_core/analyzers/yourLanguage.py` implementing:
+
+```python
+def analyze(workspace: Path, options: dict) -> AnalyzerResult:
+    ...
+
+register("yourlanguage", analyze)
+```
+
+Then add the import to `endpoints_core/analyzers/__init__.py`. Nothing else changes.
+
+---
+
 ## `grep_workspace` — Text/regex search with context
 
 Search for text or a regex pattern across workspace files. Returns matches **grouped by file** with configurable surrounding context lines.
@@ -466,9 +545,17 @@ tools/
 │   ├── traversal.py                # Direct + recursive reverse (trace_callers)
 │   └── classification.py           # Clasificación de impacto V3
 │
+├── endpoints_core/                 # Escáner modular de endpoints/rutas
+│   ├── common.py                   # Dataclass Endpoint, registro ANALYZERS, file walker
+│   ├── formatter.py                # Output compacto agrupado por kind
+│   └── analyzers/
+│       ├── java.py                 # Spring: @QueryMapping, @GetMapping, etc.
+│       └── typescript.py           # React Router 7: loader, action, resource routes
+│
 ├── trace_symbol.py / .ts           # Forward trace: sigue llamadas hacia adentro
 ├── trace_callers.py / .ts          # Reverse trace: busca callers entrantes
 ├── find_symbol.py / .ts            # Localizador: encuentra dónde está definido un símbolo
+├── list_endpoints.py / .ts         # Índice de endpoints/rutas: superficie API completa
 ├── grep_workspace.ts               # Búsqueda de texto/regex con contexto
 ├── scan_module.ts                  # Escáner de carpetas
 └── api_test.ts                     # Tester de APIs local
@@ -738,6 +825,43 @@ Matches: 1
 
 Use read or scan_module to inspect the file content.
 ```
+
+---
+
+## `list_endpoints` — Índice de superficie API
+
+Escanea el workspace y retorna todos los endpoints y rutas agrupados por kind. Retorna solo nombre, kind, archivo, línea y path — **sin contenido de archivos**.
+
+Usar para entender la superficie completa de la API de un proyecto antes de leer archivos individuales.
+
+Modular: agregar un nuevo lenguaje requiere solo crear un archivo en `endpoints_core/analyzers/` y registrarlo.
+
+### Soportado
+
+| Lenguaje | Framework | Qué detecta |
+|----------|-----------|-------------|
+| Java | Spring Boot | `@QueryMapping`, `@MutationMapping`, `@GetMapping`, `@PostMapping`, `@PutMapping`, `@PatchMapping`, `@DeleteMapping` |
+| TypeScript | React Router 7 | exports `loader`, `action` en `routes/`; resource routes bajo `routes/api/` |
+
+### Parámetros
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `language` | `auto` \| `java` \| `typescript` | Opcional. Limita el escaneo a un lenguaje. Por defecto `auto` |
+| `type` | `any` \| `graphql` \| `rest` \| `routes` | Opcional. Filtra por tipo de endpoint. Por defecto `any` |
+
+### Agregar un nuevo lenguaje
+
+Crear `endpoints_core/analyzers/tuLenguaje.py` implementando:
+
+```python
+def analyze(workspace: Path, options: dict) -> AnalyzerResult:
+    ...
+
+register("tulenguaje", analyze)
+```
+
+Luego agregar el import en `endpoints_core/analyzers/__init__.py`. Nada más cambia.
 
 ---
 
