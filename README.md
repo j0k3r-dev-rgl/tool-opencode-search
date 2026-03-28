@@ -6,6 +6,89 @@
 
 Custom tools available to the agent. Loaded automatically on startup.
 
+## Why these tools exist
+
+These tools were created to solve a recurring problem in AI-assisted code navigation.
+
+When an agent needs to fix a bug, understand a flow, or find the right implementation,
+it often falls into an inefficient pattern: open file after file, try regex searches,
+run shell commands, and keep guessing until it finds the right place.
+
+That wastes both **time** and **tokens**.
+
+The idea for this toolkit came from how **LSPs and IDEs** work. In an editor, you can
+press **Ctrl+Click** (or equivalent) and jump directly to a definition or implementation.
+That is fast, precise, and gives only the context you actually need.
+
+So the goal of these tools is to bring that same idea to AI agents:
+
+- jump directly to the right definition
+- trace the real flow of an endpoint or feature
+- inspect only the relevant module
+- return compact, high-signal output instead of full file dumps
+
+In other words: instead of forcing the agent to brute-force the codebase with regex and shell
+commands until it gets lucky, we provide dedicated tools that understand common navigation tasks
+and return only the minimum necessary context.
+
+That is why this repository focuses on tools like:
+
+- `find_symbol` → go to a definition
+- `trace_symbol` / `trace_callers` → follow real code flow
+- `list_endpoints` → index the API surface
+- `grep_workspace` → search text with compact context
+- `scan_module` → read only the relevant module
+
+The result is a workflow that is faster, more deterministic, and much more token-efficient.
+
+## Agent-specific tool availability
+
+OpenCode lets you restrict tool availability **per agent** (including primary agents and subagents).
+This is important because keeping fewer tools available to an agent reduces noise and can help lower context/token overhead.
+
+The official docs support agent-level tool control via `agent.<name>.tools` (legacy but still supported) or `agent.<name>.permission`.
+
+Example:
+
+```json
+{
+  "agent": {
+    "gentleman": {
+      "mode": "primary",
+      "tools": {
+        "api_test": false,
+        "trace_callers": false,
+        "list_endpoints": false
+      }
+    },
+    "sdd-explore": {
+      "mode": "subagent",
+      "tools": {
+        "find_symbol": true,
+        "grep_workspace": true,
+        "list_endpoints": true,
+        "api_test": false
+      }
+    }
+  }
+}
+```
+
+### Why this matters
+
+- Keep the **primary agent** thin and strategic
+- Give **exploration agents** discovery tools (`find_symbol`, `grep_workspace`, `list_endpoints`, `trace_symbol`)
+- Give **verification agents** runtime tools like `api_test`
+- Avoid exposing every tool to every agent when it is not needed
+
+### Recommended approach
+
+- Use `tools` for simple on/off filtering by tool name
+- Prefer `permission` for newer configs when you need finer control
+- Design agents by responsibility: exploration, implementation, verification, orchestration
+
+This README documents the tools themselves. Availability should be configured in `opencode.json` per agent.
+
 ## Architecture
 
 Both tracing tools share a common core to avoid logic duplication:
@@ -529,6 +612,89 @@ All tools are sandboxed — they can only access files within the active workspa
 [Back to English / Volver a inglés](#english)
 
 Herramientas personalizadas disponibles para el agente. Se cargan automáticamente al iniciar.
+
+## Por qué existen estas tools
+
+Estas tools nacieron para resolver un problema recurrente en la navegación de código asistida por IA.
+
+Cuando un agente necesita corregir un bug, entender un flujo o encontrar la implementación correcta,
+muchas veces cae en un patrón ineficiente: abrir archivo tras archivo, probar búsquedas por regex,
+ejecutar comandos de shell, y seguir adivinando hasta encontrar el lugar correcto.
+
+Eso desperdicia tanto **tiempo** como **tokens**.
+
+La idea de este toolkit nació de cómo funcionan los **LSPs y los IDEs**. En un editor,
+podés hacer **Ctrl+Click** (o equivalente) y saltar directo a una definición o implementación.
+Eso es rápido, preciso, y entrega solo el contexto que realmente hace falta.
+
+Entonces el objetivo de estas tools es llevar esa misma idea a los agentes de IA:
+
+- saltar directo a la definición correcta
+- trazar el flujo real de un endpoint o feature
+- inspeccionar solo el módulo relevante
+- devolver output compacto y de alta señal en vez de volcar archivos completos
+
+En otras palabras: en vez de obligar al agente a brute-forcear el codebase con regex y comandos
+de shell hasta acertar, se le proveen tools dedicadas que entienden tareas comunes de navegación
+y retornan solo el contexto mínimo necesario.
+
+Por eso este repositorio se enfoca en tools como:
+
+- `find_symbol` → ir a una definición
+- `trace_symbol` / `trace_callers` → seguir el flujo real del código
+- `list_endpoints` → indexar la superficie de la API
+- `grep_workspace` → buscar texto con contexto compacto
+- `scan_module` → leer solo el módulo relevante
+
+El resultado es un workflow más rápido, más determinístico y mucho más eficiente en tokens.
+
+## Disponibilidad de tools por agente
+
+OpenCode permite restringir la disponibilidad de tools **por agente** (incluyendo agentes primarios y subagentes).
+Esto es importante porque mantener menos tools disponibles para un agente reduce ruido y puede ayudar a bajar el overhead de contexto/tokens.
+
+La documentación oficial soporta control por agente mediante `agent.<nombre>.tools` (legacy pero todavía soportado) o `agent.<nombre>.permission`.
+
+Ejemplo:
+
+```json
+{
+  "agent": {
+    "gentleman": {
+      "mode": "primary",
+      "tools": {
+        "api_test": false,
+        "trace_callers": false,
+        "list_endpoints": false
+      }
+    },
+    "sdd-explore": {
+      "mode": "subagent",
+      "tools": {
+        "find_symbol": true,
+        "grep_workspace": true,
+        "list_endpoints": true,
+        "api_test": false
+      }
+    }
+  }
+}
+```
+
+### Por qué importa
+
+- Mantener el **agente principal** delgado y estratégico
+- Dar a los **agentes de exploración** tools de descubrimiento (`find_symbol`, `grep_workspace`, `list_endpoints`, `trace_symbol`)
+- Dar a los **agentes de verificación** tools de runtime como `api_test`
+- Evitar exponer todas las tools a todos los agentes cuando no hace falta
+
+### Enfoque recomendado
+
+- Usar `tools` para filtrado simple on/off por nombre de tool
+- Preferir `permission` en configs nuevas cuando se necesite control más fino
+- Diseñar agentes por responsabilidad: exploración, implementación, verificación, orquestación
+
+Este README documenta las tools en sí. La disponibilidad debe configurarse por agente en `opencode.json`.
 
 ## Arquitectura
 
