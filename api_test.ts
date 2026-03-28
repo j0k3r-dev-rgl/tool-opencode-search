@@ -7,13 +7,12 @@
  *
  * Autenticación:
  *   El token se obtiene automáticamente via POST /auth/login usando las
- *   credenciales TEST_USERNAME / TEST_PASSWORD del .env del proyecto activo.
- *   Si no existen esas variables, las pide como argumento.
+ *   credenciales TEST_USERNAME / TEST_PASSWORD del .env.tool del proyecto.
  *
- * BACKEND_URL se resuelve en este orden:
- *   1. Variable de entorno BACKEND_URL del proceso
- *   2. Leer el .env del proyecto activo (context.directory)
- *   3. Fallback: http://localhost:8080
+ * Config se lee exclusivamente de .env.tool en la raíz del proyecto:
+ *   BACKEND_URL=http://localhost:8080
+ *   TEST_USERNAME=your_user
+ *   TEST_PASSWORD=your_password
  */
 
 import * as fs from "node:fs/promises";
@@ -22,69 +21,78 @@ import { tool } from "@opencode-ai/plugin";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function readEnvFile(directory: string): Promise<Record<string, string>> {
-	const vars: Record<string, string> = {};
-	// Busca .env en el proyecto activo y en el back/ si existe
-	const candidates = [
-		path.join(directory, ".env"),
-		path.join(directory, "back", ".env"),
-		path.join(directory, "front", ".env"),
-	];
-	for (const envPath of candidates) {
-		try {
-			const content = await fs.readFile(envPath, "utf8");
-			for (const line of content.split("\n")) {
-				const trimmed = line.trim();
-				if (!trimmed || trimmed.startsWith("#")) continue;
-				const eq = trimmed.indexOf("=");
-				if (eq === -1) continue;
-				const key = trimmed.slice(0, eq).trim();
-				const value = trimmed.slice(eq + 1).trim();
-				vars[key] = value;
-			}
-		} catch {
-			// archivo no existe — continuar
-		}
-	}
-	return vars;
+const ENV_TOOL_FILE = ".env.tool"
+const ENV_TOOL_REQUIRED_VARS = ["BACKEND_URL", "TEST_USERNAME", "TEST_PASSWORD"]
+
+interface EnvToolResult {
+	vars: Record<string, string>
+	missingFile: boolean
+	missingVars: string[]
 }
 
-async function getBackendUrl(directory: string): Promise<string> {
-	if (process.env.BACKEND_URL) return process.env.BACKEND_URL;
-	const env = await readEnvFile(directory);
-	return env.BACKEND_URL ?? "http://localhost:8080";
+async function readEnvTool(directory: string): Promise<EnvToolResult> {
+	const envPath = path.join(directory, ENV_TOOL_FILE)
+	const vars: Record<string, string> = {}
+
+	try {
+		const content = await fs.readFile(envPath, "utf8")
+		for (const line of content.split("\n")) {
+			const trimmed = line.trim()
+			if (!trimmed || trimmed.startsWith("#")) continue
+			const eq = trimmed.indexOf("=")
+			if (eq === -1) continue
+			const key = trimmed.slice(0, eq).trim()
+			const value = trimmed.slice(eq + 1).trim()
+			vars[key] = value
+		}
+	} catch {
+		return { vars: {}, missingFile: true, missingVars: ENV_TOOL_REQUIRED_VARS }
+	}
+
+	const missingVars = ENV_TOOL_REQUIRED_VARS.filter((v) => !vars[v])
+	return { vars, missingFile: false, missingVars }
+}
+
+function buildSetupError(directory: string, missingFile: boolean, missingVars: string[]): string {
+	const envPath = path.join(directory, ENV_TOOL_FILE)
+	if (missingFile) {
+		return [
+			`❌ Missing config file: ${envPath}`,
+			``,
+			`Create it with the following content:`,
+			``,
+			`  BACKEND_URL=http://localhost:8080`,
+			`  TEST_USERNAME=your_user`,
+			`  TEST_PASSWORD=your_password`,
+		].join("\n")
+	}
+	return [
+		`❌ Missing variables in ${envPath}:`,
+		``,
+		...missingVars.map((v) => `  ${v}=<value>`),
+		``,
+		`Add the missing variables to the file and try again.`,
+	].join("\n")
 }
 
 async function getToken(
 	backendUrl: string,
-	directory: string,
-	username?: string,
-	password?: string,
+	username: string,
+	password: string,
 ): Promise<string> {
-	// Intentar obtener credenciales del .env
-	if (!username || !password) {
-		const env = await readEnvFile(directory);
-		username = username ?? env.TEST_USERNAME;
-		password = password ?? env.TEST_PASSWORD;
-	}
-
-	if (!username || !password) {
-		return "SIN_TOKEN — agregá TEST_USERNAME y TEST_PASSWORD a tu .env o pasalos como argumento";
-	}
-
 	const res = await fetch(`${backendUrl}/auth/login`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ username, password }),
-	});
+	})
 
-	const data = (await res.json()) as Record<string, unknown>;
+	const data = (await res.json()) as Record<string, unknown>
 
 	if (!res.ok || data.code === 401 || data.code === 404) {
-		throw new Error(`Login fallido: ${data.message ?? res.statusText}`);
+		throw new Error(`Login failed: ${data.message ?? res.statusText}`)
 	}
 
-	return data.token as string;
+	return data.token as string
 }
 
 function formatResponse(status: number, data: unknown): string {
@@ -97,19 +105,16 @@ function formatResponse(status: number, data: unknown): string {
 // ─── Tool Definition ─────────────────────────────────────────────────────────
 
 export default tool({
-	description: `Test REST and GraphQL APIs of the local backend.
-Automatically logs in with TEST_USERNAME / TEST_PASSWORD from the project .env to get a JWT token.
+	description: `Test REST and GraphQL APIs of the local backend (http://localhost:8080).
+Automatically logs in with TEST_USERNAME / TEST_PASSWORD from the project .env.tool to get a JWT token.
 Use for manual testing during development — no files saved, result shown inline.
 
-Backend URL is resolved in this order:
-  1. BACKEND_URL env var from the process
-  2. BACKEND_URL in the project .env (also checks back/.env and front/.env)
-  3. Fallback: http://localhost:8080
-
-Configure in your project .env:
+Requires a .env.tool file at the project root with:
   BACKEND_URL=http://localhost:8080
   TEST_USERNAME=your_user
   TEST_PASSWORD=your_password
+
+If the file is missing or any variable is absent, the tool reports exactly what to add and where.
 
 Examples:
 - GraphQL query:  type=graphql, query="{ getTitularById(id: \\"abc\\") { data { names } responseStatus { code } } }"
@@ -162,14 +167,14 @@ Examples:
 			.string()
 			.optional()
 			.describe(
-				"Override username for login (default: TEST_USERNAME from .env)",
+				"Override username for login (default: TEST_USERNAME from .env.tool)",
 			),
 
 		password: tool.schema
 			.string()
 			.optional()
 			.describe(
-				"Override password for login (default: TEST_PASSWORD from .env)",
+				"Override password for login (default: TEST_PASSWORD from .env.tool)",
 			),
 	},
 
@@ -186,13 +191,31 @@ Examples:
 		} = args;
 		const directory = context.directory ?? process.cwd();
 
-		// 1. Resolver backend URL
-		const backendUrl = await getBackendUrl(directory);
+		// 1. Leer .env.tool — fuente única de configuración
+		const envTool = await readEnvTool(directory)
 
-		// 2. Obtener token (salvo que se indique skipAuth)
+		// Credenciales: args tienen prioridad sobre .env.tool
+		const resolvedUsername = username ?? envTool.vars.TEST_USERNAME
+		const resolvedPassword = password ?? envTool.vars.TEST_PASSWORD
+		const resolvedBackendUrl = envTool.vars.BACKEND_URL ?? "http://localhost:8080"
+
+		// 2. Validar config si se necesita auth
+		if (!skipAuth) {
+			const missing: string[] = []
+			if (envTool.missingFile) {
+				return buildSetupError(directory, true, [])
+			}
+			if (!resolvedUsername) missing.push("TEST_USERNAME")
+			if (!resolvedPassword) missing.push("TEST_PASSWORD")
+			if (missing.length > 0) {
+				return buildSetupError(directory, false, missing)
+			}
+		}
+
+		// 3. Obtener token (salvo que se indique skipAuth)
 		let token: string | null = null;
 		if (!skipAuth) {
-			token = await getToken(backendUrl, directory, username, password);
+			token = await getToken(resolvedBackendUrl, resolvedUsername!, resolvedPassword!);
 		}
 
 		const authHeader: Record<string, string> = token
@@ -203,7 +226,7 @@ Examples:
 		if (type === "graphql") {
 			if (!query) return "❌ Falta el argumento `query` para tipo graphql";
 
-			const res = await fetch(`${backendUrl}/graphql`, {
+			const res = await fetch(`${resolvedBackendUrl}/graphql`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -236,7 +259,7 @@ Examples:
 			if (!method) return "❌ Falta el argumento `method` para tipo rest";
 			if (!endpointPath) return "❌ Falta el argumento `path` para tipo rest";
 
-			const url = `${backendUrl}${endpointPath}`;
+			const url = `${resolvedBackendUrl}${endpointPath}`;
 
 			const hasBody = ["POST", "PUT", "PATCH"].includes(method) && body;
 			let parsedBody: string | undefined;

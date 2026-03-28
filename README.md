@@ -389,15 +389,16 @@ Executes requests against the local backend (REST or GraphQL) with automatic aut
 
 ### Authentication & Configuration
 
-Reads credentials and backend host from the project `.env`. Does `POST /auth/login` automatically and uses the token on each request.
+Reads all configuration from a `.env.tool` file at the **project root**. Does `POST /auth/login` automatically and uses the token on each request.
 
 ```env
+# .env.tool — place this at your project root
 BACKEND_URL=http://localhost:8080
 TEST_USERNAME=your_user
 TEST_PASSWORD=your_password
 ```
 
-`BACKEND_URL` is resolved in order: process env → project `.env` → `back/.env` → fallback `http://localhost:8080`.
+If the file is missing or any variable is absent, the tool reports exactly what to create or add — no guessing.
 
 ### Parameters
 
@@ -828,15 +829,16 @@ Ejecuta requests contra el backend local (REST o GraphQL) con autenticación aut
 
 ### Autenticación y configuración
 
-Lee las credenciales y el host del backend desde el `.env` del proyecto. Hace `POST /auth/login` automáticamente y usa el token en cada request.
+Lee toda la configuración desde un archivo `.env.tool` en la **raíz del proyecto**. Hace `POST /auth/login` automáticamente y usa el token en cada request.
 
 ```env
+# .env.tool — crear en la raíz del proyecto
 BACKEND_URL=http://localhost:8080
 TEST_USERNAME=tu_usuario
 TEST_PASSWORD=tu_password
 ```
 
-`BACKEND_URL` se resuelve en orden: variable de entorno del proceso → `.env` del proyecto → `back/.env` → fallback `http://localhost:8080`.
+Si el archivo no existe o falta alguna variable, la tool reporta exactamente qué crear o agregar — sin ambigüedad.
 
 ### Parámetros
 
