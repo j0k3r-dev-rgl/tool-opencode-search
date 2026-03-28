@@ -23,6 +23,8 @@ tools/
 │
 ├── trace_symbol.py / .ts           # Forward trace: follow calls outward
 ├── trace_callers.py / .ts          # Reverse trace: find incoming callers
+├── find_symbol.py / .ts            # Definition locator: find where a symbol is defined
+├── grep_workspace.ts               # Text/regex search with context lines
 ├── scan_module.ts                  # Directory scanner
 └── api_test.ts                     # Local API tester
 ```
@@ -246,6 +248,100 @@ Use read or scan_module on the caller files for impact analysis.
 
 ---
 
+## `find_symbol` — Locate a symbol definition
+
+Given a name, scans the workspace AST and returns all files + lines where that class, interface, function, method, or type is **defined**.
+
+Use this when you know a symbol name but not its file. Much cheaper than grep — returns only `file + line + kind`, no content.
+
+### How it works
+
+Uses **tree-sitter** to parse each file and find declaration nodes by name.
+
+**Java:** Finds `class_declaration`, `interface_declaration`, `enum_declaration`, `method_declaration`, `constructor_declaration`, `annotation_type_declaration`.
+
+**TypeScript / JavaScript:** Finds `class_declaration`, `interface_declaration`, `type_alias_declaration`, `function_declaration`, `method_definition`, `enum_declaration`, and `const/let` declarations that assign arrow functions or components.
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | string | Symbol name to search for |
+| `language` | `auto` \| `java` \| `ts` \| `typescript` | Optional. Limits scan to one language. Defaults to `auto` |
+| `kind` | `any` \| `class` \| `interface` \| `function` \| `method` \| `type` \| `enum` \| `constructor` \| `annotation` | Optional. Filter by definition kind. Defaults to `any` |
+| `fuzzy` | boolean | Optional. If `true`, match names that **contain** the search term (case-insensitive). Default: `false` |
+
+### Examples
+
+```
+find_symbol(name="CreateTitularUseCase", language="java")
+
+find_symbol(name="getTitularById", language="java", kind="method")
+
+find_symbol(name="useSession", language="ts")
+
+find_symbol(name="Titular", language="java", fuzzy=true)
+```
+
+### Example output
+
+```
+Symbol: `CreateTitularUseCase`
+Matches: 1
+
+  1. back/src/main/java/.../use_cases/command/CreateTitularUseCase.java:12  [class] CreateTitularUseCase
+
+Use read or scan_module to inspect the file content.
+```
+
+---
+
+## `grep_workspace` — Text/regex search with context
+
+Search for text or a regex pattern across workspace files. Returns matches **grouped by file** with configurable surrounding context lines.
+
+Much cheaper than `scan_module` for content search: returns only the matching lines and their context, not the full file content.
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `pattern` | string | Text or regex pattern to search for |
+| `extensions` | string[] | Optional. Only search files with these extensions |
+| `regex` | boolean | Optional. Treat `pattern` as regex. Default: `false` (plain text, case-insensitive) |
+| `context` | number | Optional. Surrounding lines to show around each match. Default: `2` |
+| `exclude` | string[] | Optional. Additional folder names or `*.ext` patterns to exclude |
+| `maxDepth` | number | Optional. Maximum directory depth |
+| `maxMatchesPerFile` | number | Optional. Cap matches per file — useful for noisy patterns |
+
+### Examples
+
+```
+grep_workspace(pattern="@QueryMapping", extensions=[".java"])
+
+grep_workspace(pattern="useSession", extensions=[".ts", ".tsx"], context=2)
+
+grep_workspace(pattern="MongoIdUtils", extensions=[".java"], context=1)
+
+grep_workspace(pattern="import.*useSession", extensions=[".ts", ".tsx"], regex=true)
+```
+
+### Example output
+
+```
+Pattern: @QueryMapping
+Matches: 7 in 3 files
+
+back/.../TitularGraphQLController.java  (3 matches)
+  >   23:    @QueryMapping
+       24:    public SingleResponse<TitularDetailResponse> getTitularById(...)
+  ...
+  >   31:    @QueryMapping
+       32:    public ListResponse<TitularItemResponse> getTitulares(...)
+```
+
+---
+
 ## `scan_module` — Directory scanner
 
 Scans a project folder and returns the file structure or full content.
@@ -363,6 +459,8 @@ tools/
 │
 ├── trace_symbol.py / .ts           # Forward trace: sigue llamadas hacia adentro
 ├── trace_callers.py / .ts          # Reverse trace: busca callers entrantes
+├── find_symbol.py / .ts            # Localizador: encuentra dónde está definido un símbolo
+├── grep_workspace.ts               # Búsqueda de texto/regex con contexto
 ├── scan_module.ts                  # Escáner de carpetas
 └── api_test.ts                     # Tester de APIs local
 ```
@@ -583,6 +681,100 @@ Use read or scan_module on the caller files for impact analysis.
 - Java se enfoca en **invocaciones directas** e interface-dispatch resoluble; referencias no-call en Java no se prometen por señal insuficiente
 - TypeScript/JavaScript evita contextos inseguros o de solo-tipo para mantener falsos positivos bajos, así que puede omitir aliasing complejo, barrel re-exports o casos dinámicos
 - Prefiere **accuracy sobre ambition**
+
+---
+
+## `find_symbol` — Localizar definición de un símbolo
+
+Dado un nombre, escanea el AST del workspace y retorna todos los archivos + líneas donde esa clase, interfaz, función, método o tipo está **definido**.
+
+Usarlo cuando se conoce el nombre de un símbolo pero no el archivo. Mucho más barato que grep — retorna solo `archivo + línea + kind`, sin contenido.
+
+### Cómo funciona
+
+Usa **tree-sitter** para parsear cada archivo y encontrar nodos de declaración por nombre.
+
+**Java:** Encuentra `class_declaration`, `interface_declaration`, `enum_declaration`, `method_declaration`, `constructor_declaration`, `annotation_type_declaration`.
+
+**TypeScript / JavaScript:** Encuentra `class_declaration`, `interface_declaration`, `type_alias_declaration`, `function_declaration`, `method_definition`, `enum_declaration`, y declaraciones `const/let` que asignan arrow functions o componentes.
+
+### Parámetros
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `name` | string | Nombre del símbolo a buscar |
+| `language` | `auto` \| `java` \| `ts` \| `typescript` | Opcional. Limita el escaneo a un lenguaje. Por defecto `auto` |
+| `kind` | `any` \| `class` \| `interface` \| `function` \| `method` \| `type` \| `enum` \| `constructor` \| `annotation` | Opcional. Filtra por tipo de definición. Por defecto `any` |
+| `fuzzy` | boolean | Opcional. Si es `true`, coincide con nombres que **contienen** el término (case-insensitive). Por defecto `false` |
+
+### Ejemplos
+
+```
+find_symbol(name="CreateTitularUseCase", language="java")
+
+find_symbol(name="getTitularById", language="java", kind="method")
+
+find_symbol(name="useSession", language="ts")
+
+find_symbol(name="Titular", language="java", fuzzy=true)
+```
+
+### Output de ejemplo
+
+```
+Symbol: `CreateTitularUseCase`
+Matches: 1
+
+  1. back/src/main/java/.../use_cases/command/CreateTitularUseCase.java:12  [class] CreateTitularUseCase
+
+Use read or scan_module to inspect the file content.
+```
+
+---
+
+## `grep_workspace` — Búsqueda de texto/regex con contexto
+
+Busca texto o un patrón regex en los archivos del workspace. Retorna los matches **agrupados por archivo** con líneas de contexto configurables.
+
+Mucho más barato que `scan_module` para búsqueda en contenido: retorna solo las líneas que coinciden y su contexto, no el archivo completo.
+
+### Parámetros
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `pattern` | string | Texto o patrón regex a buscar |
+| `extensions` | string[] | Opcional. Solo buscar en archivos con estas extensiones |
+| `regex` | boolean | Opcional. Tratar `pattern` como regex. Por defecto `false` (texto plano, case-insensitive) |
+| `context` | number | Opcional. Líneas de contexto alrededor de cada match. Por defecto `2` |
+| `exclude` | string[] | Opcional. Nombres de carpetas o patrones `*.ext` extra a excluir |
+| `maxDepth` | number | Opcional. Profundidad máxima de carpetas |
+| `maxMatchesPerFile` | number | Opcional. Límite de matches por archivo — útil para patrones con muchos resultados |
+
+### Ejemplos
+
+```
+grep_workspace(pattern="@QueryMapping", extensions=[".java"])
+
+grep_workspace(pattern="useSession", extensions=[".ts", ".tsx"], context=2)
+
+grep_workspace(pattern="MongoIdUtils", extensions=[".java"], context=1)
+
+grep_workspace(pattern="import.*useSession", extensions=[".ts", ".tsx"], regex=true)
+```
+
+### Output de ejemplo
+
+```
+Pattern: @QueryMapping
+Matches: 7 in 3 files
+
+back/.../TitularGraphQLController.java  (3 matches)
+  >   23:    @QueryMapping
+       24:    public SingleResponse<TitularDetailResponse> getTitularById(...)
+  ...
+  >   31:    @QueryMapping
+       32:    public ListResponse<TitularItemResponse> getTitulares(...)
+```
 
 ---
 
