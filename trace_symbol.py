@@ -25,47 +25,120 @@ import tree_sitter_typescript as tsts
 from tree_sitter import Language, Parser, Node
 
 JAVA_LANG = Language(tsjava.language())
-TS_LANG   = Language(tsts.language_typescript())
-TSX_LANG  = Language(tsts.language_tsx())
+TS_LANG = Language(tsts.language_typescript())
+TSX_LANG = Language(tsts.language_tsx())
 
 # JS y JSX usan los mismos parsers que TS y TSX
 SUPPORTED = {
     ".java": JAVA_LANG,
-    ".ts":   TS_LANG,
-    ".tsx":  TSX_LANG,
-    ".js":   TS_LANG,
-    ".jsx":  TSX_LANG,
+    ".ts": TS_LANG,
+    ".tsx": TSX_LANG,
+    ".js": TS_LANG,
+    ".jsx": TSX_LANG,
 }
-SKIP_DIRS = {"node_modules", ".git", "target", "build", "dist",
-             ".next", "__pycache__", ".gradle", ".idea", "out", ".cache"}
+SKIP_DIRS = {
+    "node_modules",
+    ".git",
+    "target",
+    "build",
+    "dist",
+    ".next",
+    "__pycache__",
+    ".gradle",
+    ".idea",
+    "out",
+    ".cache",
+}
 
 # Tipos del lenguaje/framework a ignorar — nunca están en el workspace
 JAVA_SKIP_TYPES = {
-    "String", "Integer", "Long", "Double", "Float", "Boolean", "Byte",
-    "List", "Map", "Set", "Optional", "Collection", "ArrayList", "HashMap",
-    "HashSet", "LinkedList", "Object", "Class", "Enum", "Record",
-    "void", "int", "long", "double", "float", "boolean", "byte", "char",
-    "LocalDate", "LocalDateTime", "Instant", "Duration", "ZonedDateTime",
-    "BigDecimal", "BigInteger", "UUID",
+    "String",
+    "Integer",
+    "Long",
+    "Double",
+    "Float",
+    "Boolean",
+    "Byte",
+    "List",
+    "Map",
+    "Set",
+    "Optional",
+    "Collection",
+    "ArrayList",
+    "HashMap",
+    "HashSet",
+    "LinkedList",
+    "Object",
+    "Class",
+    "Enum",
+    "Record",
+    "void",
+    "int",
+    "long",
+    "double",
+    "float",
+    "boolean",
+    "byte",
+    "char",
+    "LocalDate",
+    "LocalDateTime",
+    "Instant",
+    "Duration",
+    "ZonedDateTime",
+    "BigDecimal",
+    "BigInteger",
+    "UUID",
     # Spring
-    "MongoTemplate", "MongoClient", "RedisTemplate", "RestTemplate",
-    "ResponseEntity", "HttpHeaders", "HttpStatus", "HttpMethod",
-    "Authentication", "UserDetails", "SecurityContext",
+    "MongoTemplate",
+    "MongoClient",
+    "RedisTemplate",
+    "RestTemplate",
+    "ResponseEntity",
+    "HttpHeaders",
+    "HttpStatus",
+    "HttpMethod",
+    "Authentication",
+    "UserDetails",
+    "SecurityContext",
     # Lombok / misc
-    "Builder", "Logger", "Slf4j",
+    "Builder",
+    "Logger",
+    "Slf4j",
 }
 
 TS_SKIP_TYPES = {
-    "string", "number", "boolean", "void", "null", "undefined", "any",
-    "Promise", "Array", "Record", "Partial", "Required", "Readonly",
-    "Request", "Response", "Headers", "URL", "FormData", "URLSearchParams",
-    "Error", "Date", "Map", "Set", "Object",
+    "string",
+    "number",
+    "boolean",
+    "void",
+    "null",
+    "undefined",
+    "any",
+    "Promise",
+    "Array",
+    "Record",
+    "Partial",
+    "Required",
+    "Readonly",
+    "Request",
+    "Response",
+    "Headers",
+    "URL",
+    "FormData",
+    "URLSearchParams",
+    "Error",
+    "Date",
+    "Map",
+    "Set",
+    "Object",
 }
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
+
 def node_text(node: Node, src: bytes) -> str:
-    return src[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
+    return src[node.start_byte : node.end_byte].decode("utf-8", errors="replace")
+
 
 def walk(root: Node, *types: str) -> list[Node]:
     results, q = [], deque([root])
@@ -75,6 +148,7 @@ def walk(root: Node, *types: str) -> list[Node]:
             results.append(n)
         q.extend(n.children)
     return results
+
 
 def parse(path: Path):
     lang = SUPPORTED.get(path.suffix.lower())
@@ -86,6 +160,7 @@ def parse(path: Path):
     except Exception:
         return None, None
 
+
 def is_in_workspace(path: Path, workspace: Path) -> bool:
     try:
         path.relative_to(workspace)
@@ -93,10 +168,13 @@ def is_in_workspace(path: Path, workspace: Path) -> bool:
     except ValueError:
         return False
 
+
 def should_skip(path: Path) -> bool:
     return any(skip in path.parts for skip in SKIP_DIRS)
 
+
 # ─── Índice: tipo → archivo que lo define ─────────────────────────────────────
+
 
 def build_type_index(workspace: Path) -> dict[str, Path]:
     """
@@ -119,9 +197,12 @@ def build_type_index(workspace: Path) -> dict[str, Path]:
         ext = path.suffix.lower()
 
         if ext == ".java":
-            for node in walk(tree.root_node,
-                             "class_declaration", "interface_declaration",
-                             "enum_declaration"):
+            for node in walk(
+                tree.root_node,
+                "class_declaration",
+                "interface_declaration",
+                "enum_declaration",
+            ):
                 for child in node.children:
                     if child.type == "identifier":
                         name = node_text(child, src)
@@ -133,9 +214,13 @@ def build_type_index(workspace: Path) -> dict[str, Path]:
                             index[name] = path
                         break
         else:
-            for node in walk(tree.root_node,
-                             "function_declaration", "class_declaration",
-                             "interface_declaration", "type_alias_declaration"):
+            for node in walk(
+                tree.root_node,
+                "function_declaration",
+                "class_declaration",
+                "interface_declaration",
+                "type_alias_declaration",
+            ):
                 for child in node.children:
                     if child.type == "identifier":
                         name = node_text(child, src)
@@ -153,7 +238,9 @@ def build_type_index(workspace: Path) -> dict[str, Path]:
 
     return index
 
+
 # ─── Índice: interfaz → clase que la implementa ───────────────────────────────
+
 
 def build_impl_index(workspace: Path) -> dict[str, Path]:
     """
@@ -181,7 +268,9 @@ def build_impl_index(workspace: Path) -> dict[str, Path]:
 
     return index
 
+
 # ─── Encontrar método en un archivo ───────────────────────────────────────────
+
 
 def find_method(path: Path, tree, src: bytes, symbol: str) -> Node | None:
     ext = path.suffix.lower()
@@ -212,7 +301,10 @@ def find_method(path: Path, tree, src: bytes, symbol: str) -> Node | None:
         # method definition (clases)
         for node in walk(tree.root_node, "method_definition"):
             for child in node.children:
-                if child.type in ("property_identifier", "identifier") and node_text(child, src) == symbol:
+                if (
+                    child.type in ("property_identifier", "identifier")
+                    and node_text(child, src) == symbol
+                ):
                     return node
         # export const symbol = () => ...
         for node in walk(tree.root_node, "lexical_declaration", "variable_declaration"):
@@ -223,7 +315,9 @@ def find_method(path: Path, tree, src: bytes, symbol: str) -> Node | None:
 
     return None
 
+
 # ─── Extraer campos de una clase Java (nombre → tipo) ─────────────────────────
+
 
 def extract_fields_java(tree, src: bytes) -> dict[str, str]:
     """
@@ -255,9 +349,13 @@ def extract_fields_java(tree, src: bytes) -> dict[str, str]:
 
     return fields
 
+
 # ─── Extraer llamadas dentro de un método Java ────────────────────────────────
 
-def extract_references_java(method_node: Node, tree, src: bytes) -> list[tuple[str, str]]:
+
+def extract_references_java(
+    method_node: Node, tree, src: bytes
+) -> list[tuple[str, str]]:
     """
     Retorna lista de (tipo_receptor, nombre_método) para cada llamada en el método.
     Ej: [("RootGetUserRepository", "findUserByIdRoot"), ("UserMapper", "toUserRootResponse")]
@@ -317,7 +415,9 @@ def extract_references_java(method_node: Node, tree, src: bytes) -> list[tuple[s
 
     return refs
 
+
 # ─── Extraer referencias en TypeScript ────────────────────────────────────────
+
 
 def extract_imports_ts(tree, src: bytes) -> dict[str, str]:
     """
@@ -333,13 +433,16 @@ def extract_imports_ts(tree, src: bytes) -> dict[str, str]:
             if child.type == "string":
                 module_path = node_text(child, src).strip("'\"` ")
             elif child.type == "import_clause":
-                for sub in walk(child, "identifier", "shorthand_property_identifier_pattern"):
+                for sub in walk(
+                    child, "identifier", "shorthand_property_identifier_pattern"
+                ):
                     names.append(node_text(sub, src))
         if module_path:
             for name in names:
                 imports[name] = module_path
 
     return imports
+
 
 def resolve_ts_path(module_path: str, from_file: Path, workspace: Path) -> Path | None:
     """Resuelve una ruta de import TypeScript a un Path absoluto."""
@@ -359,6 +462,10 @@ def resolve_ts_path(module_path: str, from_file: Path, workspace: Path) -> Path 
 
     candidate_base = (base / module_path).resolve()
 
+    # Si el path ya existe tal cual (import con extensión explícita)
+    if candidate_base.exists() and is_in_workspace(candidate_base, workspace):
+        return candidate_base
+
     for ext in [".ts", ".tsx", ".js", ".jsx"]:
         # Usar str concatenation para NO reemplazar sufijos existentes
         # auth.server + .ts → auth.server.ts (correcto)
@@ -374,11 +481,13 @@ def resolve_ts_path(module_path: str, from_file: Path, workspace: Path) -> Path 
 
     return None
 
-def extract_references_ts(method_node: Node, tree, src: bytes,
-                           from_file: Path, workspace: Path) -> list[Path]:
+
+def extract_references_ts(
+    method_node: Node, tree, src: bytes, from_file: Path, workspace: Path
+) -> list[tuple[Path, str]]:
     """
-    Retorna lista de archivos referenciados desde el método TypeScript.
-    Resuelve imports del archivo y busca las funciones llamadas.
+    Retorna lista de (archivo, símbolo) referenciados desde el método TypeScript.
+    Resuelve imports del archivo y busca las funciones/hooks llamados.
     """
     imports = extract_imports_ts(tree, src)
     called: set[str] = set()
@@ -394,29 +503,31 @@ def extract_references_ts(method_node: Node, tree, src: bytes,
             if prop:
                 called.add(node_text(prop, src))
 
-    resolved: list[Path] = []
+    resolved: list[tuple[Path, str]] = []
     for sym in called:
         module_path = imports.get(sym)
         if not module_path:
             continue
         path = resolve_ts_path(module_path, from_file, workspace)
         if path:
-            resolved.append(path)
+            resolved.append((path, sym))
 
     return resolved
 
+
 # ─── BFS principal ────────────────────────────────────────────────────────────
 
+
 def trace(workspace_str: str, file_str: str, symbol: str) -> list[str]:
-    workspace  = Path(workspace_str).resolve()
+    workspace = Path(workspace_str).resolve()
     start_file = Path(file_str).resolve()
 
     if not start_file.exists():
         return [f"ERROR: File not found: {file_str}"]
 
     # Construir índices
-    type_index = build_type_index(workspace)   # tipo → archivo que lo define
-    impl_index = build_impl_index(workspace)   # interfaz → implementación
+    type_index = build_type_index(workspace)  # tipo → archivo que lo define
+    impl_index = build_impl_index(workspace)  # interfaz → implementación
 
     visited_files: list[Path] = []
     visited_set: set[Path] = set()
@@ -453,8 +564,7 @@ def trace(workspace_str: str, file_str: str, symbol: str) -> list[str]:
         if ext == ".java":
             refs = extract_references_java(method_node, tree, src)
 
-            for (receiver_type, method_called) in refs:
-
+            for receiver_type, method_called in refs:
                 if receiver_type == "__new__":
                     # new MiClase() → ir al constructor
                     if method_called in JAVA_SKIP_TYPES:
@@ -487,24 +597,28 @@ def trace(workspace_str: str, file_str: str, symbol: str) -> list[str]:
 
         else:
             # TypeScript
-            resolved_files = extract_references_ts(
-                method_node, tree, src, current_file, workspace)
+            resolved_refs = extract_references_ts(
+                method_node, tree, src, current_file, workspace
+            )
 
-            for ref_file in resolved_files:
+            for ref_file, ref_sym in resolved_refs:
+                # Registrar el archivo si es nuevo
                 if ref_file not in visited_set:
-                    # Para TS no sabemos el símbolo exacto — agregar el archivo
-                    # y explorar sus exports en la próxima iteración
-                    if ref_file not in visited_set:
-                        visited_set.add(ref_file)
-                        visited_files.append(ref_file)
+                    visited_set.add(ref_file)
+                    visited_files.append(ref_file)
+                # Encolar el símbolo para continuar el BFS dentro de ese archivo
+                queue.append((ref_file, ref_sym))
 
     return [str(f.relative_to(workspace)) for f in visited_files]
+
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
-        print(json.dumps({"error": "Usage: trace_symbol.py <workspace> <file> <symbol>"}))
+        print(
+            json.dumps({"error": "Usage: trace_symbol.py <workspace> <file> <symbol>"})
+        )
         sys.exit(1)
 
     try:
@@ -512,5 +626,6 @@ if __name__ == "__main__":
         print(json.dumps({"files": result, "count": len(result)}))
     except Exception as e:
         import traceback
+
         print(json.dumps({"error": str(e), "trace": traceback.format_exc()}))
         sys.exit(1)
