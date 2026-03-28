@@ -97,9 +97,19 @@ function formatResponse(status: number, data: unknown): string {
 // ─── Tool Definition ─────────────────────────────────────────────────────────
 
 export default tool({
-	description: `Test REST and GraphQL APIs of the local backend (http://localhost:8080).
+	description: `Test REST and GraphQL APIs of the local backend.
 Automatically logs in with TEST_USERNAME / TEST_PASSWORD from the project .env to get a JWT token.
 Use for manual testing during development — no files saved, result shown inline.
+
+Backend URL is resolved in this order:
+  1. BACKEND_URL env var from the process
+  2. BACKEND_URL in the project .env (also checks back/.env and front/.env)
+  3. Fallback: http://localhost:8080
+
+Configure in your project .env:
+  BACKEND_URL=http://localhost:8080
+  TEST_USERNAME=your_user
+  TEST_PASSWORD=your_password
 
 Examples:
 - GraphQL query:  type=graphql, query="{ getTitularById(id: \\"abc\\") { data { names } responseStatus { code } } }"

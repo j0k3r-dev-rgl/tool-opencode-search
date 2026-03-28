@@ -387,14 +387,17 @@ scan_module(path="front/app/routes", mode="read", extensions=[".tsx"], maxLines=
 
 Executes requests against the local backend (REST or GraphQL) with automatic authentication.
 
-### Authentication
+### Authentication & Configuration
 
-Reads `TEST_USERNAME` and `TEST_PASSWORD` from the project `.env`. Does `POST /auth/login` automatically and uses the token on each request.
+Reads credentials and backend host from the project `.env`. Does `POST /auth/login` automatically and uses the token on each request.
 
 ```env
+BACKEND_URL=http://localhost:8080
 TEST_USERNAME=your_user
 TEST_PASSWORD=your_password
 ```
+
+`BACKEND_URL` is resolved in order: process env → project `.env` → `back/.env` → fallback `http://localhost:8080`.
 
 ### Parameters
 
@@ -823,14 +826,17 @@ scan_module(path="front/app/routes", mode="read", extensions=[".tsx"], maxLines=
 
 Ejecuta requests contra el backend local (REST o GraphQL) con autenticación automática.
 
-### Autenticación
+### Autenticación y configuración
 
-Lee `TEST_USERNAME` y `TEST_PASSWORD` del `.env` del proyecto. Hace `POST /auth/login` automáticamente y usa el token en cada request.
+Lee las credenciales y el host del backend desde el `.env` del proyecto. Hace `POST /auth/login` automáticamente y usa el token en cada request.
 
 ```env
+BACKEND_URL=http://localhost:8080
 TEST_USERNAME=tu_usuario
 TEST_PASSWORD=tu_password
 ```
+
+`BACKEND_URL` se resuelve en orden: variable de entorno del proceso → `.env` del proyecto → `back/.env` → fallback `http://localhost:8080`.
 
 ### Parámetros
 
